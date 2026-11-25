@@ -457,7 +457,8 @@ function showFinal(){
   cb.addEventListener("change",function(){spoil=cb.checked; box.textContent=shareText();});
   btn.addEventListener("click",function(){
     var done=function(ok){ if(!ok) box.hidden=false; btn.textContent= ok ? "Copied. Paste it into a text" : "Press and hold the score below to copy"; setTimeout(function(){btn.textContent="Share my score";},2600);};
-    if(navigator.share){ navigator.share({text:shareText()}).catch(function(){}); return; }
+    var ua=navigator.userAgent||"", ios=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1), android=/Android/.test(ua);
+    if(ios||android){ window.location.href="sms:"+(ios?"&":"?")+"body="+encodeURIComponent(shareText()); return; }
     try{ navigator.clipboard.writeText(shareText()).then(function(){done(true);},function(){done(false);}); }catch(e){done(false);}
   });
   share.appendChild(btn); share.appendChild(chk); share.appendChild(box);
