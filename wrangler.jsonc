@@ -1,0 +1,7 @@
+{
+  "name": "traverse",
+  "compatibility_date": "2026-11-01",
+  "build": { "command": "node build.mjs" },
+  "assets": { "directory": "./public" },
+  "routes": [{ "pattern": "playtraverse.com", "custom_domain": true }]
+}

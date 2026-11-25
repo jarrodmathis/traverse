@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Traverse</title>
+<meta name="description" content="Three Bible verses a day. Guess where each one is found.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Grenze+Gotisch:wght@700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;1,7..72,400&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: one phone-width column. The verse is the hero; under it runs the
+   "canon strip", a 66-bar skyline of the Bible that shows where you guessed and
+   where the verse really lives. Ink navy on cool paper, with a rubric red accent
+   borrowed from red-lettered manuscripts. */
+:root{
+  --paper:#e4e8d6; --card:#fafbf3; --ink:#232e1d; --muted:#5d6a52; --line:#c9d0b4;
+  --rubric:#a86412; --on-rubric:#fafbf3;
+  --hit:#3f7d4a; --near:#d2a12a; --miss:#a9b094;
+  --display:"Grenze Gotisch", "Iowan Old Style", Georgia, serif;
+  --verse:"Literata", "Iowan Old Style", Georgia, serif;
+  --ui:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#141a12; --card:#1e2619; --ink:#e9eddc; --muted:#9aa68b; --line:#35402c;
+    --rubric:#e09a3e; --on-rubric:#1a1206;
+    --hit:#5fb974; --near:#e3b84a; --miss:#4b5640;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141a12; --card:#1e2619; --ink:#e9eddc; --muted:#9aa68b; --line:#35402c;
+  --rubric:#e09a3e; --on-rubric:#1a1206;
+  --hit:#5fb974; --near:#e3b84a; --miss:#4b5640;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--ui);font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--rubric);outline-offset:2px}
+.app{max-width:480px;margin:0 auto;padding:14px 16px 40px;display:flex;flex-direction:column;gap:16px}
+
+/* header */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.mark{font-family:var(--display);font-size:42px;line-height:1;margin:0;letter-spacing:-.01em;font-weight:400}
+.mark b{font-weight:400;color:var(--rubric)}
+.sub{font-size:13px;color:var(--muted);margin-top:4px}
+.top-right{display:flex;align-items:center;gap:10px}
+.total{text-align:right;font-variant-numeric:tabular-nums}
+.total .n{font-family:var(--display);font-size:24px;line-height:1}
+.total .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.help{width:36px;height:36px;border-radius:50%;border:1.5px solid var(--line);background:transparent;font-weight:700}
+
+/* route: three waypoints */
+.route{display:grid;grid-template-columns:repeat(3,1fr);gap:0;position:relative}
+.route[hidden]{display:none}
+.stop{display:flex;flex-direction:column;align-items:center;gap:5px;position:relative;font-size:12px;color:var(--muted)}
+.stop::before{content:"";position:absolute;top:13px;left:-50%;width:100%;border-top:2px dashed var(--line)}
+.stop:first-child::before{display:none}
+.stop.done::before,.stop.now::before{border-top-style:solid;border-color:var(--ink)}
+.dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);background:var(--paper);display:grid;place-items:center;font-weight:700;font-size:13px;position:relative;z-index:1;font-variant-numeric:tabular-nums}
+.stop.now .dot{border-color:var(--rubric);background:var(--rubric);color:var(--on-rubric)}
+.stop.done .dot{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.stop.now{color:var(--ink);font-weight:600}
+.stop .pts{font-variant-numeric:tabular-nums}
+
+/* verse */
+.card{background:var(--card);border-radius:18px;padding:22px 20px;border:1px solid var(--line)}
+.verse{font-family:var(--verse);font-size:21px;line-height:1.5;margin:0;text-wrap:pretty}
+.verse::before{content:"";display:block;width:34px;height:3px;background:var(--rubric);margin-bottom:14px}
+.kicker{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;display:flex;justify-content:space-between}
+
+/* canon strip */
+.canon{display:flex;flex-direction:column;gap:6px}
+.bars{display:flex;align-items:flex-end;gap:1.5px;height:44px}
+.bar{flex:1;min-width:0;background:var(--line);border-radius:2px 2px 0 0;transition:background .2s}
+.bar.nt1{margin-left:7px}
+.bar.g{background:var(--ink)}
+.bar.a{background:var(--rubric)}
+.bar.g.a{background:var(--hit)}
+.canon-labels{display:flex;font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.canon-labels span:first-child{flex:39}
+.canon-labels span:last-child{flex:27;padding-left:7px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
+
+/* guess form */
+form{display:flex;flex-direction:column;gap:10px}
+label{font-weight:600;font-size:14px}
+.field{display:flex;gap:8px}
+input[type=text]{flex:1;min-width:0;font:inherit;font-size:18px;padding:13px 14px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);color:var(--ink)}
+input[type=text]:focus{outline:none;border-color:var(--ink)}
+.btn{border:0;border-radius:12px;padding:13px 18px;background:var(--rubric);color:var(--on-rubric);font-weight:700;font-size:16px;white-space:nowrap}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.wide{width:100%;padding:15px}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.link{background:none;border:0;padding:6px 0;color:var(--muted);text-decoration:underline;font-size:14px;align-self:flex-start}
+.chips{display:flex;gap:6px;flex-wrap:wrap;min-height:34px}
+.chip{border:1.5px solid var(--line);background:transparent;border-radius:999px;padding:5px 12px;font-size:14px}
+.reading{font-size:14px;color:var(--muted);min-height:20px}
+.reading strong{color:var(--ink)}
+.reading.err{color:var(--rubric)}
+
+/* reveal */
+.answer{font-family:var(--display);font-size:30px;line-height:1.1;margin:2px 0 4px;text-wrap:balance}
+.guessed{color:var(--muted);font-size:15px;margin:0}
+.ladder{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.ladder li{display:grid;grid-template-columns:14px 92px 1fr;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:15px}
+.pip{width:14px;height:14px;border-radius:4px;background:var(--miss)}
+.pip.hit{background:var(--hit)} .pip.near{background:var(--near)}
+.pip.none{background:transparent;border:2px solid var(--miss)}
+.ladder .what{font-weight:600}
+.ladder .how{color:var(--muted);text-align:right}
+.points{display:flex;align-items:baseline;justify-content:space-between;border-top:2px solid var(--ink);padding-top:10px}
+.points .big{font-family:var(--display);font-size:34px;line-height:1;font-variant-numeric:tabular-nums}
+.points .of{color:var(--muted);font-size:14px}
+.stack{display:flex;flex-direction:column;gap:16px}
+
+/* results */
+.final{text-align:left}
+.final .score{font-family:var(--display);font-size:72px;line-height:.95;font-variant-numeric:tabular-nums}
+.final .score small{font-family:var(--ui);font-size:24px;color:var(--muted);font-weight:500}
+.recap{list-style:none;margin:0;padding:0}
+.recap li{display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.recap .pips{display:flex;gap:3px}
+.recap .ref{font-weight:600}
+.recap .g{grid-column:2/4;color:var(--muted);font-size:14px}
+.recap .p{font-variant-numeric:tabular-nums;font-weight:700}
+.sharebox{font-family:ui-monospace,Menlo,monospace;font-size:14px;line-height:1.5;white-space:pre-wrap;background:var(--paper);border:1px dashed var(--line);border-radius:12px;padding:12px;margin:0;overflow-wrap:anywhere;user-select:all;-webkit-user-select:all}
+.check{display:flex;gap:8px;align-items:center;font-weight:400;font-size:14px;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+.stats div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 4px}
+.stats b{display:block;font-family:var(--display);font-weight:400;font-size:22px;font-variant-numeric:tabular-nums}
+.stats span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.next{text-align:center;color:var(--muted);font-size:14px}
+.foot{font-size:12px;color:var(--muted);text-align:center;margin-top:8px}
+
+dialog{border:0;border-radius:18px;padding:22px 20px;max-width:420px;width:calc(100% - 32px);background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(12,16,10,.6)}
+dialog h2{font-family:var(--display);font-weight:400;font-size:26px;margin:0 0 10px}
+dialog p,dialog li{font-size:15px}
+dialog ul{padding-left:18px;margin:8px 0 16px}
+@keyframes rise{from{transform:translateY(8px);opacity:.3}to{transform:none;opacity:1}}
+.stage>*{animation:rise .35s ease both}
+@media (prefers-reduced-motion: reduce){.stage>*{animation:none}.bar{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div>
+      <h1 class="mark">Tra<b>verse</b></h1>
+      <div class="sub" id="dayline">Daily verse-finding</div>
+    </div>
+    <div class="top-right">
+      <div class="total"><div class="n" id="total">0</div><div class="l">of 1,000</div></div>
+      <button class="help" id="helpBtn" aria-label="How to play">?</button>
+      <button class="help" id="themeBtn" aria-label="Switch to dark mode">☾</button>
+      
+    </div>
+  </header>
+
+  <nav class="route" id="route" aria-label="Today's three verses"></nav>
+
+  <main class="stage stack" id="stage"></main>
+
+  <p class="foot">Verse text: Berean Standard Bible, public domain.</p>
+</div>
+
+<dialog id="help">
+  <h2>How to play</h2>
+  <p>Three verses a day, each harder than the last. Type where you think each one is found, such as <strong>John 3:16</strong>, <strong>1 Cor 13</strong> or just <strong>Psalms</strong>.</p>
+  <ul>
+    <li><strong>Testament</strong> right: 10% of the verse's points</li>
+    <li><strong>Book</strong> right: 50%. A near-miss book earns up to 30%</li>
+    <li><strong>Chapter</strong> right: 80%. Close chapters earn partial credit</li>
+    <li><strong>Verse</strong> exact: 100%. Close verses earn up to 98%</li>
+  </ul>
+  <p>Verse 1 is worth 200, verse 2 is worth 300, verse 3 is worth 500. Everyone gets the same verses each day.</p>
+  <button class="btn wide" id="helpClose">Got it</button>
+</dialog>
+
+<script src="data.js"></script>
+<script>
+(function(){
+"use strict";
+var D = window.TV_DATA, BOOKS = D.books.map(function(b){return {name:b[0], chs:b[1]};});
+var WEIGHTS = [2,3,5], LEVELS = ["Easy","Medium","Hard"];
+var $ = function(id){return document.getElementById(id);};
+function el(tag, cls, text){var e=document.createElement(tag); if(cls)e.className=cls; if(text!=null)e.textContent=text; return e;}
+
+/* ---------- books and parsing ---------- */
+function key(s){return s.toLowerCase().replace(/[^a-z0-9]/g,"");}
+var KEYS = BOOKS.map(function(b){return key(b.name);});
+var ALIAS = {};
+KEYS.forEach(function(k,i){ALIAS[k]=i;});
+var EXTRA = {gn:0,gen:0,ex:1,exod:1,lv:2,lev:2,nm:3,num:3,dt:4,deut:4,josh:5,jdg:6,judg:6,ru:7,
+ "1sam":8,"1sm":8,"1sa":8,"2sam":9,"2sm":9,"2sa":9,"1kgs":10,"1ki":10,"2kgs":11,"2ki":11,
+ "1chr":12,"1ch":12,"1chron":12,"2chr":13,"2ch":13,"2chron":13,ezr:14,neh:15,est:16,esth:16,jb:17,
+ ps:18,psa:18,psalm:18,pss:18,pr:19,prov:19,prv:19,ecc:20,eccl:20,eccles:20,qoheleth:20,
+ song:21,sos:21,songofsongs:21,ss:21,canticles:21,is:22,isa:22,jer:23,jr:23,lam:24,ez:25,ezek:25,ezk:25,
+ dan:26,dn:26,hos:27,jl:28,am:29,ob:30,obad:30,jon:31,mic:32,mi:32,nah:33,na:33,hab:34,zeph:35,zep:35,
+ hag:36,hg:36,zech:37,zec:37,mal:38,mt:39,matt:39,mk:40,mrk:40,lk:41,luk:41,jn:42,jhn:42,joh:42,
+ ac:43,rom:44,rm:44,ro:44,"1cor":45,"1co":45,"2cor":46,"2co":46,gal:47,ga:47,eph:48,phil:49,php:49,pp:49,
+ col:50,"1thess":51,"1th":51,"1thes":51,"2thess":52,"2th":52,"2thes":52,"1tim":53,"1ti":53,"1tm":53,
+ "2tim":54,"2ti":54,"2tm":54,tit:55,ti:55,phm:56,philem:56,phlm:56,heb:57,jas:58,jm:58,
+ "1pet":59,"1pe":59,"1pt":59,"2pet":60,"2pe":60,"2pt":60,"1jn":61,"1jo":61,"1jhn":61,"2jn":62,"2jo":62,"2jhn":62,
+ "3jn":63,"3jo":63,"3jhn":63,jud:64,jd:64,rev:65,rv:65,revelations:65,apocalypse:65,re:65};
+Object.keys(EXTRA).forEach(function(k){ALIAS[k]=EXTRA[k];});
+
+function bookKey(part){
+  var s = part.toLowerCase().trim()
+    .replace(/^(first|1st)\b/,"1").replace(/^(second|2nd)\b/,"2").replace(/^(third|3rd)\b/,"3")
+    .replace(/^iii\s+/,"3").replace(/^ii\s+/,"2").replace(/^i\s+/,"1");
+  return key(s);
+}
+function findBook(part){
+  var k = bookKey(part); if(!k) return {b:-1, opts:[]};
+  if(ALIAS[k]!=null) return {b:ALIAS[k], opts:[ALIAS[k]]};
+  var opts=[]; KEYS.forEach(function(bk,i){ if(bk.indexOf(k)===0) opts.push(i); });
+  return {b: opts.length===1 ? opts[0] : -1, opts:opts};
+}
+var RE = /^\s*((?:[123]\s*)?[a-z][a-z\s]*?)\s*(?:(\d{1,3})(?:\s*[:.,;\s]\s*(\d{1,3}))?)?(?:\s*[-–—]\s*\d+)?\s*$/;
+function parseRef(raw){
+  var s = (raw||"").toLowerCase()
+    .replace(/(\d)\s*(?:verses|verse|vs|v)\.?\s*(\d)/g,"$1:$2")
+    .replace(/\bchapter\b/g," ")
+    .replace(/^(first|1st)\b/,"1 ").replace(/^(second|2nd)\b/,"2 ").replace(/^(third|3rd)\b/,"3 ")
+    .replace(/^iii\s+/,"3 ").replace(/^ii\s+/,"2 ").replace(/^i\s+/,"1 ")
+    .replace(/([a-z])\./g,"$1 ");
+  var m = RE.exec(s);
+  if(!m) return {ok:false, opts:[], msg: s.trim() ? "Start with a book name, like Romans 8:28" : ""};
+  var f = findBook(m[1]);
+  if(f.b<0) return {ok:false, opts:f.opts, msg: f.opts.length ? "Which book?" : "No book matches “"+m[1].trim()+"”"};
+  var bk = BOOKS[f.b], c = m[2]?+m[2]:null, v = m[3]?+m[3]:null;
+  if(bk.chs.length===1){ if(c!=null && v==null && c!==1){ v=c; } if(c!=null || v!=null) c=1; }
+  if(c!=null && (c<1 || c>bk.chs.length)) return {ok:false, b:f.b, opts:[f.b], msg: bk.name+" has "+bk.chs.length+" chapter"+(bk.chs.length>1?"s":"")};
+  if(v!=null && (v<1 || v>bk.chs[c-1])) return {ok:false, b:f.b, opts:[f.b], msg: bk.name+" "+c+" has "+bk.chs[c-1]+" verses"};
+  return {ok:true, b:f.b, c:c, v:v, opts:[f.b]};
+}
+function refText(r){
+  if(!r) return "Skipped";
+  var bk = BOOKS[r.b], s = bk.name;
+  if(r.c!=null){ s += bk.chs.length===1 ? (r.v!=null ? " "+r.v : " 1") : " "+r.c+(r.v!=null?":"+r.v:""); }
+  return s;
+}
+
+/* ---------- scoring ---------- */
+function plural(n,w){return n+" "+w+(n===1?"":"s");}
+function judge(g, a){
+  var t={acc:0, tiers:["miss","miss","miss","miss"], how:["","","",""], note:"skipped"};
+  if(!g) return t;
+  var sameT = (g.b<39)===(a.b<39);
+  if(!sameT){ t.how[0]="wrong testament"; t.note="wrong testament"; return t; }
+  t.tiers[0]="hit"; t.how[0]= a.b<39 ? "Old Testament" : "New Testament";
+  if(g.b!==a.b){
+    var d=Math.abs(g.b-a.b), prox=Math.max(0,1-(d-1)/10);
+    t.acc = 10+Math.round(20*prox); t.tiers[1]= prox>0?"near":"miss";
+    t.how[1]=plural(d,"book")+" off"; t.note=t.how[1]; return t;
+  }
+  t.tiers[1]="hit"; t.how[1]=BOOKS[a.b].name;
+  if(g.c==null){ t.acc=50; t.tiers[2]=t.tiers[3]="none"; t.how[2]=t.how[3]="no guess"; t.note="right book"; return t; }
+  if(g.c!==a.c){
+    var n=BOOKS[a.b].chs.length, dc=Math.abs(g.c-a.c), pc=Math.max(0,1-dc/Math.max(4,Math.ceil(n/2)));
+    t.acc=50+Math.round(25*pc); t.tiers[2]= pc>0?"near":"miss";
+    t.how[2]=plural(dc,"chapter")+" off"; t.note=t.how[2]; return t;
+  }
+  t.tiers[2]="hit"; t.how[2]="chapter "+a.c;
+  if(g.v==null){ t.acc=80; t.tiers[3]="none"; t.how[3]="no guess"; t.note="right chapter"; return t; }
+  if(g.v!==a.v){
+    var nv=BOOKS[a.b].chs[a.c-1], dv=Math.abs(g.v-a.v), pv=Math.max(0,1-dv/Math.max(5,Math.ceil(nv/2)));
+    t.acc=80+Math.round(18*pv); t.tiers[3]= pv>0?"near":"miss";
+    t.how[3]=plural(dv,"verse")+" off"; t.note=t.how[3]; return t;
+  }
+  t.acc=100; t.tiers[3]="hit"; t.how[3]="verse "+a.v; t.note="exact"; return t;
+}
+function points(i, acc){return acc*WEIGHTS[i];}
+
+/* ---------- the day ---------- */
+function rng(seed){return function(){seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296;};}
+function pick(pool, poolId, day){
+  var n=pool.length, cycle=Math.floor(day/n), pos=((day%n)+n)%n, r=rng(9973*(poolId+1)+7919*cycle+17);
+  var idx=[]; for(var i=0;i<n;i++) idx.push(i);
+  for(var j=n-1;j>0;j--){var k=Math.floor(r()*(j+1)); var tmp=idx[j]; idx[j]=idx[k]; idx[k]=tmp;}
+  var x=pool[idx[pos]]; return {b:x[0], c:x[1], v:x[2], text:x[3]};
+}
+var now=new Date(), DAY=Math.round((Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())-Date.UTC(2026,10,24))/864e5);
+var DAYNO=DAY+1, DATEKEY=now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate();
+var DATELABEL=now.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+var PICKS=[0,1,2].map(function(i){return pick(D.pools[i], i, Math.abs(DAY));});
+
+/* ---------- saved state (this device only) ---------- */
+var mem={};
+function load(k){try{var s=localStorage.getItem(k); return s?JSON.parse(s):mem[k];}catch(e){return mem[k];}}
+function save(k,v){mem[k]=v; try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+var saved=load("traverse:day"), guesses=(saved && saved.key===DATEKEY) ? saved.guesses : [];
+var stats=load("traverse:stats")||{played:0,streak:0,best:0,sum:0,last:null};
+var spoil=false;
+
+function results(){return guesses.map(function(g,i){var j=judge(g,PICKS[i]); j.pts=points(i,j.acc); return j;});}
+function totalPts(){return results().reduce(function(s,r){return s+r.pts;},0);}
+
+/* ---------- drawing ---------- */
+function drawRoute(showing){
+  var nav=$("route"); nav.textContent=""; var rs=results();
+  for(var i=0;i<3;i++){
+    var s=el("div","stop"+(i<guesses.length?" done":"")+(i===showing?" now":""));
+    s.appendChild(el("div","dot",String(i+1)));
+    s.appendChild(el("div","pts", i<guesses.length ? rs[i].pts+" / "+WEIGHTS[i]*100 : LEVELS[i]+" · "+WEIGHTS[i]*100));
+    nav.appendChild(s);
+  }
+  $("total").textContent=totalPts().toLocaleString();
+}
+function canon(g, a){
+  var wrap=el("div","canon"), bars=el("div","bars");
+  bars.setAttribute("role","img");
+  bars.setAttribute("aria-label","The 66 books of the Bible in order, from Genesis to Revelation");
+  BOOKS.forEach(function(b,i){
+    var bar=el("div","bar"+(i===39?" nt1":"")+(g===i?" g":"")+(a===i?" a":""));
+    bar.style.height=Math.round(22+78*Math.log(b.chs.length+1)/Math.log(151))+"%";
+    bar.title=b.name; bars.appendChild(bar);
+  });
+  wrap.appendChild(bars);
+  var lab=el("div","canon-labels"); lab.appendChild(el("span",null,"Old Testament")); lab.appendChild(el("span",null,"New Testament"));
+  wrap.appendChild(lab); wrap.bars=bars; return wrap;
+}
+function verseCard(i){
+  var card=el("section","card");
+  var k=el("p","kicker"); k.appendChild(el("span",null,"Verse "+(i+1)+" of 3"));
+  card.appendChild(k); card.appendChild(el("p","verse",PICKS[i].text)); return card;
+}
+
+function showGuess(i){
+  drawRoute(i);
+  var st=$("stage"); st.textContent=""; $("route").hidden=false;
+  st.appendChild(verseCard(i));
+  var form=el("form"); form.noValidate=true;
+  var lab=el("label",null,"Where is this verse?"); lab.htmlFor="guess"; form.appendChild(lab);
+  var field=el("div","field"), inp=el("input"); inp.type="text"; inp.id="guess"; inp.name="guess";
+  inp.placeholder="Book chapter:verse"; inp.autocomplete="off"; inp.setAttribute("autocapitalize","words");
+  inp.setAttribute("autocorrect","off"); inp.spellcheck=false; inp.enterKeyHint="done";
+  var go=el("button","btn","Lock in"); go.type="submit"; go.disabled=true;
+  field.appendChild(inp); field.appendChild(go); form.appendChild(field);
+  var reading=el("div","reading"); reading.setAttribute("aria-live","polite"); form.appendChild(reading);
+  var chips=el("div","chips"); form.appendChild(chips);
+  var cn=canon(-1,-1);
+  st.appendChild(form); st.appendChild(cn);
+  var cur=null;
+  function refresh(){
+    var p=parseRef(inp.value); cur=p.ok?p:null; go.disabled=!p.ok;
+    reading.className="reading"+(p.ok||!p.msg||p.msg==="Which book?"?"":" err");
+    reading.textContent="";
+    if(p.ok){ reading.appendChild(document.createTextNode("Reading as ")); reading.appendChild(el("strong",null,refText(p)));
+      if(p.c==null) reading.appendChild(document.createTextNode(". Add a chapter and verse for more points."));
+      else if(p.v==null && BOOKS[p.b].chs.length>1) reading.appendChild(document.createTextNode(". Add a verse for more points.")); }
+    else reading.textContent=p.msg||"";
+    chips.textContent="";
+    var hasNum=/[a-z]\s*\d+\s*$|[a-z]\s+\d/i.test(inp.value.replace(/^\s*[123]\s*/,""));
+    if(!hasNum && p.opts && inp.value.trim()){
+      p.opts.slice(0,5).forEach(function(bi){
+        if(p.ok && key(inp.value)===KEYS[bi]) return;
+        var c=el("button","chip",BOOKS[bi].name); c.type="button";
+        c.addEventListener("click",function(){inp.value=BOOKS[bi].name+" "; inp.focus(); refresh();});
+        chips.appendChild(c);
+      });
+    }
+    var bi2 = p.b!=null && p.b>=0 ? p.b : -1;
+    Array.prototype.forEach.call(cn.bars.children,function(b,ix){b.classList.toggle("g",ix===bi2);});
+  }
+  inp.addEventListener("input",refresh);
+  form.addEventListener("submit",function(e){e.preventDefault(); if(cur) lock({b:cur.b,c:cur.c,v:cur.v});});
+  function lock(g){
+    guesses[i]=g; save("traverse:day",{key:DATEKEY,guesses:guesses});
+    if(guesses.length===3) finishStats();
+    showReveal(i);
+  }
+}
+
+function showReveal(i){
+  drawRoute(i);
+  var st=$("stage"); st.textContent=""; $("route").hidden=false;
+  var a=PICKS[i], g=guesses[i], j=judge(g,a), pts=points(i,j.acc);
+  var card=el("section","card stack");
+  var head=el("div");
+  var k=el("p","kicker"); k.appendChild(el("span",null,"Verse "+(i+1)+" of 3"));
+  head.appendChild(k);
+  head.appendChild(el("h2","answer",refText(a)));
+  head.appendChild(el("p","guessed", g ? "You guessed "+refText(g) : "You skipped this one"));
+  card.appendChild(head);
+  var q=el("p","verse",a.text); q.style.fontSize="17px"; card.appendChild(q);
+  var ul=el("ul","ladder");
+  ["Testament","Book","Chapter","Verse"].forEach(function(name,ix){
+    var li=el("li"); li.appendChild(el("span","pip "+j.tiers[ix])); li.appendChild(el("span","what",name));
+    li.appendChild(el("span","how", j.how[ix] || "—")); ul.appendChild(li);
+  });
+  card.appendChild(ul);
+  var p=el("div","points"); p.appendChild(el("span","big","+"+pts));
+  p.appendChild(el("span","of",j.acc+"% of "+WEIGHTS[i]*100));
+  card.appendChild(p);
+  st.appendChild(card);
+  st.appendChild(canon(g?g.b:-1, a.b));
+  var lg=el("div","legend");
+  function key2(color,text){var s=el("span"); var sw=el("i"); sw.style.background=color; s.appendChild(sw); s.appendChild(document.createTextNode(text)); return s;}
+  if(g && g.b===a.b) lg.appendChild(key2("var(--hit)","Right book: "+BOOKS[a.b].name));
+  else { lg.appendChild(key2("var(--rubric)","Answer: "+BOOKS[a.b].name)); if(g) lg.appendChild(key2("var(--ink)","Your guess: "+BOOKS[g.b].name)); }
+  st.appendChild(lg);
+  var nx=el("button","btn wide", i<2 ? "Next verse" : "See today's results");
+  nx.addEventListener("click",function(){ i<2 ? showGuess(i+1) : showFinal(); window.scrollTo(0,0); });
+  st.appendChild(nx);
+}
+
+function finishStats(){
+  if(stats.last===DAY) return;
+  var t=totalPts();
+  stats.streak = stats.last===DAY-1 ? stats.streak+1 : 1;
+  stats.played++; stats.sum+=t; stats.best=Math.max(stats.best,t); stats.last=DAY;
+  save("traverse:stats",stats);
+}
+var SQ={hit:"🟩",near:"🟨",miss:"⬛",none:"⬜"};
+function shareText(){
+  var rs=results(), lines=["Traverse", now.toLocaleDateString(undefined,{month:"long",day:"numeric"})];
+  rs.forEach(function(r,i){
+    var l=r.tiers.map(function(t){return SQ[t];}).join("")+" "+r.pts+" · "+r.note;
+    if(spoil) l+=" (guessed "+refText(guesses[i])+")";
+    lines.push(l);
+  });
+  lines.push("Final score: "+totalPts());
+  return lines.join("\n");
+}
+function showFinal(){
+  drawRoute(-1); $("route").hidden=true; $("total").parentNode.hidden=true;
+  var st=$("stage"); st.textContent="";
+  var rs=results(), tot=totalPts();
+  var card=el("section","card stack final");
+  var sc=el("div","score",tot.toLocaleString()); sc.appendChild(el("small",null," / 1,000"));
+  var head=el("div"); var k=el("p","kicker"); k.appendChild(el("span",null,"Traverse #"+DAYNO)); k.appendChild(el("span",null,DATELABEL));
+  head.appendChild(k); head.appendChild(sc); card.appendChild(head);
+  var ul=el("ul","recap");
+  rs.forEach(function(r,i){
+    var li=el("li"), pp=el("span","pips");
+    r.tiers.forEach(function(t){pp.appendChild(el("span","pip "+t));});
+    li.appendChild(pp); li.appendChild(el("span","ref",refText(PICKS[i]))); li.appendChild(el("span","p",String(r.pts)));
+    li.appendChild(el("span","g",guesses[i] ? "Guessed "+refText(guesses[i])+" · "+r.note : "Skipped"));
+    ul.appendChild(li);
+  });
+  card.appendChild(ul);
+  st.appendChild(card);
+
+  var share=el("section","stack");
+  var box=el("pre","sharebox"); box.id="sharebox"; box.textContent=shareText(); box.hidden=true;
+  var btn=el("button","btn wide","Share my score");
+  var chk=el("label","check"), cb=el("input"); cb.type="checkbox"; cb.id="spoil"; cb.checked=spoil;
+  chk.htmlFor="spoil"; chk.appendChild(cb); chk.appendChild(document.createTextNode("Include my guesses (gives away today's answers)"));
+  cb.addEventListener("change",function(){spoil=cb.checked; box.textContent=shareText();});
+  btn.addEventListener("click",function(){
+    var done=function(ok){ if(!ok) box.hidden=false; btn.textContent= ok ? "Copied. Paste it into a text" : "Press and hold the score below to copy"; setTimeout(function(){btn.textContent="Share my score";},2600);};
+    if(navigator.share){ navigator.share({text:shareText()}).catch(function(){}); return; }
+    try{ navigator.clipboard.writeText(shareText()).then(function(){done(true);},function(){done(false);}); }catch(e){done(false);}
+  });
+  share.appendChild(btn); share.appendChild(chk); share.appendChild(box);
+  st.appendChild(share);
+
+  var sg=el("div","stats");
+  [[stats.played,"Played"],[stats.streak,"Streak"],[stats.best,"Best"],[stats.played?Math.round(stats.sum/stats.played):0,"Average"]].forEach(function(x){
+    var d=el("div"); d.appendChild(el("b",null,x[0].toLocaleString())); d.appendChild(el("span",null,x[1])); sg.appendChild(d);
+  });
+  st.appendChild(sg);
+  var nx=el("p","next"); st.appendChild(nx);
+  function tick(){var n=new Date(), m=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1), s=Math.max(0,Math.floor((m-n)/1000));
+    nx.textContent="Three new verses in "+Math.floor(s/3600)+"h "+String(Math.floor(s%3600/60)).padStart(2,"0")+"m";}
+  tick(); setInterval(tick,30000);
+}
+
+/* ---------- start ---------- */
+$("dayline").textContent="#"+DAYNO+" · "+now.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});
+var help=$("help");
+var root=document.documentElement, themeBtn=$("themeBtn");
+function isDark(){var t=root.getAttribute("data-theme"); if(t) return t==="dark"; try{return window.matchMedia("(prefers-color-scheme: dark)").matches;}catch(e){return false;}}
+function paintTheme(){var d=isDark(); themeBtn.textContent=d?"☀":"☾"; themeBtn.setAttribute("aria-label",d?"Switch to light mode":"Switch to dark mode");}
+var savedTheme=load("traverse:theme"); if(savedTheme==="dark"||savedTheme==="light") root.setAttribute("data-theme",savedTheme);
+paintTheme();
+themeBtn.addEventListener("click",function(){var t=isDark()?"light":"dark"; root.setAttribute("data-theme",t); save("traverse:theme",t); paintTheme();});
+$("helpBtn").addEventListener("click",function(){ help.showModal ? help.showModal() : help.setAttribute("open",""); });
+$("helpClose").addEventListener("click",function(){ help.close ? help.close() : help.removeAttribute("open"); });
+if(guesses.length>=3){ finishStats(); showFinal(); } else showGuess(guesses.length);
+
+window.__tv={parseRef:parseRef,judge:judge,refText:refText,PICKS:PICKS,BOOKS:BOOKS};
+})();
+</script>
+</body>
+</html>
