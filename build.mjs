@@ -18,6 +18,6 @@ const struct = books.map((b, bi) => [
   }),
 ]);
 const pools = JSON.parse(await readFile(new URL("./pools.json", import.meta.url), "utf8"));
-const data = { books: struct, pools: [pools.easy, pools.medium, pools.hard].map((p) => p.map((i) => all[i])) };
+const data = { books: struct, pools: [pools.easy, pools.medium, pools.hard, pools.easy2].map((p) => p.map((i) => all[i])) };
 await writeFile(new URL("./public/data.js", import.meta.url), "window.TV_DATA=" + JSON.stringify(data) + ";");
 console.log("Wrote public/data.js with", data.pools.map((p) => p.length).join(" + "), "verses");

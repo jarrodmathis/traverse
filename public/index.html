@@ -296,7 +296,9 @@ function pick(pool, poolId, day){
 var now=new Date(), DAY=Math.round((Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())-Date.UTC(2026,10,24))/864e5);
 var DAYNO=DAY+1, DATEKEY=now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate();
 var DATELABEL=now.toLocaleDateString(undefined,{month:"short",day:"numeric"});
-var PICKS=[0,1,2].map(function(i){return pick(D.pools[i], i, Math.abs(DAY));});
+// Round one switched to a tighter pool of the most famous verses on Nov 27, 2026 (day 3).
+var EASY = (DAY>=3 && D.pools[3]) ? D.pools[3] : D.pools[0];
+var PICKS=[0,1,2].map(function(i){return pick(i===0 ? EASY : D.pools[i], i, Math.abs(DAY));});
 
 /* ---------- saved state (this device only) ---------- */
 var mem={};
