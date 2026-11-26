@@ -427,7 +427,7 @@ function finishStats(){
 }
 var SQ={hit:"🟩",near:"🟨",miss:"⬛",none:"⬜"};
 function shareText(){
-  var rs=results(), lines=["www.playtraverse.com", now.toLocaleDateString(undefined,{month:"long",day:"numeric"})];
+  var rs=results(), lines=["playtraverse.com", now.toLocaleDateString(undefined,{month:"long",day:"numeric"})];
   rs.forEach(function(r,i){
     var l=r.tiers.map(function(t){return SQ[t];}).join("")+" "+r.pts+" · "+r.note;
     if(spoil) l+=" (guessed "+refText(guesses[i])+")";
