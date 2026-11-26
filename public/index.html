@@ -192,6 +192,7 @@ dialog ul{padding-left:18px;margin:8px 0 16px}
 <script>
 (function(){
 "use strict";
+if(location.hostname==="www.playtraverse.com"){ location.replace("https://playtraverse.com"+location.pathname); return; }
 var D = window.TV_DATA, BOOKS = D.books.map(function(b){return {name:b[0], chs:b[1]};});
 var WEIGHTS = [2,3,5], LEVELS = ["Easy","Medium","Hard"];
 var $ = function(id){return document.getElementById(id);};
@@ -426,7 +427,7 @@ function finishStats(){
 }
 var SQ={hit:"🟩",near:"🟨",miss:"⬛",none:"⬜"};
 function shareText(){
-  var rs=results(), lines=["Traverse", now.toLocaleDateString(undefined,{month:"long",day:"numeric"})];
+  var rs=results(), lines=["www.playtraverse.com", now.toLocaleDateString(undefined,{month:"long",day:"numeric"})];
   rs.forEach(function(r,i){
     var l=r.tiers.map(function(t){return SQ[t];}).join("")+" "+r.pts+" · "+r.note;
     if(spoil) l+=" (guessed "+refText(guesses[i])+")";
